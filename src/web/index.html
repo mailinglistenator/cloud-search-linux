@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Search Lite</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="/assets/icon.png">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            <circle cx="11" cy="13" r="3"/>
+            <path d="m13.2 15.2 2.8 2.8"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="app-title">Cloud Search Lite</h1>
+          <div class="header-meta" id="headerMeta">
+            <span id="totalFiles">Loading index...</span>
+            <span class="meta-dot">•</span>
+            <span id="syncTime">Never synced</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="syncBtn" class="btn btn-secondary" title="Sync index directly from cloud APIs">
+          <svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+          <span id="syncBtnText">Sync Index</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Real-time Sync Progress Banner -->
+    <div id="syncProgressBanner" class="sync-banner hidden">
+      <div class="sync-banner-content">
+        <div class="spinner"></div>
+        <div class="sync-banner-text">
+          <span id="syncProgressText">Connecting to cloud API...</span>
+          <span id="syncProgressCount" class="sync-count">0 files</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Section -->
+    <section class="search-section">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="search-input" 
+          placeholder="Search files or folders (e.g. 'folder:dnd' or filename)..." 
+          autofocus 
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <div class="search-shortcuts">
+          <kbd class="kbd-hint">/</kbd>
+          <button id="clearSearchBtn" class="clear-btn hidden" title="Clear search">×</button>
+        </div>
+      </div>
+
+      <!-- Filter Controls -->
+      <div class="filters-row">
+        <!-- Remote Filter Chips -->
+        <div class="filter-group" id="remoteFilters">
+          <button class="chip active" data-remote="">All Drives</button>
+          <button class="chip chip-onedrive" data-remote="onedrive">OneDrive</button>
+          <button class="chip chip-gdrive" data-remote="gdrive">Google Drive</button>
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <!-- File Type Filter Chips -->
+        <div class="filter-group" id="typeFilters">
+          <button class="chip active" data-type="">All Types</button>
+          <button class="chip chip-folder" data-type="folders">📁 Folders</button>
+          <button class="chip" data-type="docs">Documents</button>
+          <button class="chip" data-type="images">Images</button>
+          <button class="chip" data-type="audio">Audio</button>
+          <button class="chip" data-type="videos">Videos</button>
+          <button class="chip" data-type="archives">Archives</button>
+          <button class="chip" data-type="code">Code</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search Status Bar -->
+    <div class="results-status-bar">
+      <span id="resultsCount">0 results</span>
+      <div class="shortcuts-legend">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <span><kbd>Enter</kbd> Open</span>
+        <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Folder</span>
+        <span><kbd>Esc</kbd> Clear</span>
+      </div>
+    </div>
+
+    <!-- Results List -->
+    <main class="results-container" id="resultsContainer">
+      <!-- Dynamic results will be injected here -->
+      <div class="empty-state" id="emptyState">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+        </svg>
+        <h3>Your Cloud Drives are ready to index</h3>
+        <p>Click "Sync Index" to download a lightning-fast snapshot of your OneDrive and Google Drive files directly via cloud APIs.</p>
+        <button id="initialSyncBtn" class="btn btn-primary">Start Initial Cloud Sync</button>
+      </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">Copied to clipboard</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="lensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded card -->
+  <rect width="256" height="256" rx="56" fill="url(#bgGrad)" />
+  <rect width="254" height="254" x="1" y="1" rx="55" fill="none" stroke="#334155" stroke-width="2" />
+
+  <!-- Cloud Outline -->
+  <path d="M168 152H92a40 40 0 0 1-5.6-79.6 52 52 0 0 1 101.2-12.8A44 44 0 0 1 168 152Z" 
+        fill="none" stroke="url(#cloudGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Magnifying Glass Search overlay -->
+  <circle cx="150" cy="150" r="32" fill="#0f172a" stroke="url(#lensGrad)" stroke-width="12" />
+  <line x1="174" y1="174" x2="204" y2="204" stroke="url(#lensGrad)" stroke-width="14" stroke-linecap="round" />
+</svg>

@@ -1,0 +1,30 @@
+# SQLite databases & runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Browser profiles and caches
+profile/
+.config/
+.cache/
+
+# Editor / OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
