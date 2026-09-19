@@ -657,6 +657,18 @@ mark {
   cursor: not-allowed;
 }
 
+.btn-nav-up {
+  width: auto;
+  padding: 0 10px;
+  gap: 5px;
+}
+
+.nav-btn-text {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 .spacer {
   flex: 1;
 }
@@ -867,6 +879,39 @@ mark {
   color: var(--text-dim);
   font-size: 12px;
   flex-shrink: 0;
+}
+
+.explorer-row.is-parent-dir {
+  background-color: rgba(0, 120, 212, 0.08);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.explorer-row.is-parent-dir:hover {
+  background-color: rgba(0, 120, 212, 0.2) !important;
+}
+
+.parent-dir-dots {
+  color: var(--accent-blue);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.parent-dir-hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.explorer-grid-card.is-parent-dir {
+  background-color: rgba(0, 120, 212, 0.08);
+  border: 1px dashed var(--accent-blue);
+}
+
+.explorer-grid-card.is-parent-dir:hover {
+  background-color: rgba(0, 120, 212, 0.22);
+  border-color: #58a6ff;
 }
 
 /* Explorer Grid View */

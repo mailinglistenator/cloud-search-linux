@@ -30,6 +30,10 @@ const state = {
   contextItem: null
 };
 
+// Navigation History Stack
+let navHistory = [];
+let navHistoryIndex = -1;
+
 // Mode Switcher Elements
 const modeSearchBtn = document.getElementById('modeSearchBtn');
 const modeExplorerBtn = document.getElementById('modeExplorerBtn');
@@ -56,7 +60,10 @@ const toastEl = document.getElementById('toast');
 
 // Explorer Mode Elements
 const explorerSection = document.getElementById('explorerSection');
+const explorerBackBtn = document.getElementById('explorerBackBtn');
+const explorerForwardBtn = document.getElementById('explorerForwardBtn');
 const explorerUpBtn = document.getElementById('explorerUpBtn');
+const explorerHomeBtn = document.getElementById('explorerHomeBtn');
 const explorerRefreshBtn = document.getElementById('explorerRefreshBtn');
 const explorerDrives = document.getElementById('explorerDrives');
 const viewListBtn = document.getElementById('viewListBtn');
@@ -146,19 +153,38 @@ function setupEventListeners() {
     initialSyncBtn.addEventListener('click', startSync);
   }
 
-  // Explorer Nav Controls
+  // Explorer Movement Controls
+  if (explorerBackBtn) {
+    explorerBackBtn.addEventListener('click', goBack);
+  }
+  if (explorerForwardBtn) {
+    explorerForwardBtn.addEventListener('click', goForward);
+  }
   if (explorerUpBtn) {
-    explorerUpBtn.addEventListener('click', () => {
-      if (state.explorerParentPath !== null) {
-        loadFolder(state.explorerRemote, state.explorerParentPath);
-      }
-    });
+    explorerUpBtn.addEventListener('click', goUp);
+  }
+  if (explorerHomeBtn) {
+    explorerHomeBtn.addEventListener('click', goHome);
   }
   if (explorerRefreshBtn) {
     explorerRefreshBtn.addEventListener('click', () => {
-      loadFolder(state.explorerRemote, state.explorerPath);
+      loadFolder(state.explorerRemote, state.explorerPath, false);
     });
   }
+
+  // Mouse Back / Forward Buttons
+  window.addEventListener('mouseup', (e) => {
+    if (state.mode !== 'explorer') return;
+    if (e.button === 3) {
+      // Mouse Back
+      e.preventDefault();
+      goBack();
+    } else if (e.button === 4) {
+      // Mouse Forward
+      e.preventDefault();
+      goForward();
+    }
+  });
 
   // Explorer View Toggle
   if (viewListBtn) {
@@ -194,7 +220,7 @@ function setupEventListeners() {
       hideContextMenu();
       if (!state.contextItem) return;
       if (state.contextItem.is_dir) {
-        loadFolder(state.explorerRemote, state.contextItem.rel_path);
+        loadFolder(state.explorerRemote, state.contextItem.rel_path, true);
       } else {
         openFile(state.contextItem.local_path);
       }
@@ -259,7 +285,9 @@ function setMode(newMode) {
     }
     renderExplorerDrives();
     if (!state.explorerItems.length && state.explorerRemote) {
-      loadFolder(state.explorerRemote, state.explorerPath || '');
+      loadFolder(state.explorerRemote, state.explorerPath || '', true);
+    } else {
+      updateNavButtons();
     }
   }
 }
@@ -268,7 +296,7 @@ function switchToExplorer(remoteId, relPath) {
   state.explorerRemote = remoteId;
   state.explorerPath = relPath;
   setMode('explorer');
-  loadFolder(remoteId, relPath);
+  loadFolder(remoteId, relPath, true);
 }
 
 function setViewMode(mode) {
@@ -280,6 +308,65 @@ function setViewMode(mode) {
     explorerContainer.classList.toggle('grid-view', mode === 'grid');
   }
   renderExplorerItems();
+}
+
+// ==========================================================================
+// Navigation & History Controls
+// ==========================================================================
+
+function updateNavButtons() {
+  const isAtRoot = !state.explorerPath || state.explorerPath === '';
+  if (explorerUpBtn) {
+    explorerUpBtn.disabled = isAtRoot;
+  }
+  if (explorerHomeBtn) {
+    explorerHomeBtn.disabled = isAtRoot;
+  }
+  if (explorerBackBtn) {
+    explorerBackBtn.disabled = navHistoryIndex <= 0;
+  }
+  if (explorerForwardBtn) {
+    explorerForwardBtn.disabled = navHistoryIndex >= navHistory.length - 1;
+  }
+}
+
+function goBack() {
+  if (navHistoryIndex > 0) {
+    navHistoryIndex--;
+    const entry = navHistory[navHistoryIndex];
+    if (entry) {
+      loadFolder(entry.remote, entry.path, false);
+    }
+  }
+}
+
+function goForward() {
+  if (navHistoryIndex < navHistory.length - 1) {
+    navHistoryIndex++;
+    const entry = navHistory[navHistoryIndex];
+    if (entry) {
+      loadFolder(entry.remote, entry.path, false);
+    }
+  }
+}
+
+function goUp() {
+  if (!state.explorerPath) return;
+
+  // Use parent path from server if available, or compute directly
+  let targetParent = state.explorerParentPath;
+  if (targetParent === null || targetParent === undefined) {
+    const parts = state.explorerPath.split('/').filter(Boolean);
+    parts.pop();
+    targetParent = parts.join('/');
+  }
+
+  loadFolder(state.explorerRemote, targetParent, true);
+}
+
+function goHome() {
+  if (!state.explorerRemote) return;
+  loadFolder(state.explorerRemote, '', true);
 }
 
 // Keyboard Handling
@@ -355,6 +442,41 @@ function handleGlobalKeydown(e) {
   if (state.mode === 'explorer') {
     const isInputActive = document.activeElement === explorerFilterInput;
 
+    // Alt+Left -> Back
+    if (e.altKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      goBack();
+      return;
+    }
+
+    // Alt+Right -> Forward
+    if (e.altKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      goForward();
+      return;
+    }
+
+    // Alt+Up or Backspace (when filter input is NOT active) -> Up one level
+    if ((e.altKey && e.key === 'ArrowUp') || (e.key === 'Backspace' && !isInputActive)) {
+      e.preventDefault();
+      goUp();
+      return;
+    }
+
+    // Alt+Home -> Drive Root
+    if (e.altKey && e.key === 'Home') {
+      e.preventDefault();
+      goHome();
+      return;
+    }
+
+    // F5 or Ctrl+R -> Refresh folder
+    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+      e.preventDefault();
+      loadFolder(state.explorerRemote, state.explorerPath, false);
+      return;
+    }
+
     // Slash '/' to switch to search mode
     if (e.key === '/' && !isInputActive) {
       e.preventDefault();
@@ -371,15 +493,6 @@ function handleGlobalKeydown(e) {
         applyExplorerFilter();
       } else if (isInputActive) {
         explorerFilterInput.blur();
-      }
-      return;
-    }
-
-    // Backspace or Alt+Up to navigate up one level
-    if ((e.key === 'Backspace' && !isInputActive) || (e.altKey && e.key === 'ArrowUp')) {
-      e.preventDefault();
-      if (state.explorerParentPath !== null) {
-        loadFolder(state.explorerRemote, state.explorerParentPath);
       }
       return;
     }
@@ -405,6 +518,13 @@ function handleGlobalKeydown(e) {
 
     // Enter to Open / Enter Folder
     if (e.key === 'Enter') {
+      // If nothing selected or selected index is -1, and parent directory exists, go up
+      if (state.explorerSelectedIndex === -1 && state.explorerPath) {
+        e.preventDefault();
+        goUp();
+        return;
+      }
+
       if (state.explorerSelectedIndex >= 0 && state.explorerSelectedIndex < state.explorerFilteredItems.length) {
         e.preventDefault();
         const selected = state.explorerFilteredItems[state.explorerSelectedIndex];
@@ -412,7 +532,7 @@ function handleGlobalKeydown(e) {
           // Ctrl+Enter: reveal in Nemo
           revealInFolder(selected.local_path, selected.is_dir);
         } else if (selected.is_dir) {
-          loadFolder(state.explorerRemote, selected.rel_path);
+          loadFolder(state.explorerRemote, selected.rel_path, true);
         } else {
           openFile(selected.local_path);
         }
@@ -434,7 +554,7 @@ function updateSelection() {
 }
 
 function updateExplorerSelection() {
-  const items = explorerContainer.querySelectorAll('.explorer-row, .explorer-grid-card');
+  const items = explorerContainer.querySelectorAll('.explorer-row:not(.is-parent-dir), .explorer-grid-card:not(.is-parent-dir)');
   items.forEach((el, i) => {
     const isSelected = i === state.explorerSelectedIndex;
     el.classList.toggle('selected', isSelected);
@@ -623,13 +743,13 @@ function renderExplorerDrives() {
         state.explorerRemote = rId;
         state.explorerPath = '';
         renderExplorerDrives();
-        loadFolder(rId, '');
+        loadFolder(rId, '', true);
       }
     });
   });
 }
 
-async function loadFolder(remoteId, folderPath = '') {
+async function loadFolder(remoteId, folderPath = '', pushHistory = true) {
   if (!remoteId) {
     if (state.remotes.length > 0) {
       remoteId = state.remotes[0].id;
@@ -638,6 +758,8 @@ async function loadFolder(remoteId, folderPath = '') {
       return;
     }
   }
+
+  folderPath = (folderPath || '').trim().replace(/^\/+|\/+$/g, '');
 
   const params = new URLSearchParams({
     remote: remoteId,
@@ -650,8 +772,8 @@ async function loadFolder(remoteId, folderPath = '') {
     const data = await res.json();
 
     state.explorerRemote = data.remote_id;
-    state.explorerPath = data.current_path;
-    state.explorerParentPath = data.parent_path;
+    state.explorerPath = data.current_path || '';
+    state.explorerParentPath = data.parent_path !== undefined ? data.parent_path : null;
     state.explorerItems = data.items || [];
     state.explorerSelectedIndex = -1;
 
@@ -660,10 +782,18 @@ async function loadFolder(remoteId, folderPath = '') {
     if (explorerFilterInput) explorerFilterInput.value = '';
     if (clearExplorerFilterBtn) clearExplorerFilterBtn.classList.add('hidden');
 
-    // Up button status
-    if (explorerUpBtn) {
-      explorerUpBtn.disabled = (data.parent_path === null || data.current_path === '');
+    // Update history
+    if (pushHistory) {
+      const currentEntry = navHistory[navHistoryIndex];
+      if (!currentEntry || currentEntry.remote !== data.remote_id || currentEntry.path !== state.explorerPath) {
+        navHistory = navHistory.slice(0, navHistoryIndex + 1);
+        navHistory.push({ remote: data.remote_id, path: state.explorerPath });
+        navHistoryIndex = navHistory.length - 1;
+      }
     }
+
+    // Update navigation button states (Back, Forward, Up, Home)
+    updateNavButtons();
 
     // Status bar counts & latency
     if (explorerCountsText) {
@@ -690,18 +820,19 @@ async function loadFolder(remoteId, folderPath = '') {
 function renderExplorerBreadcrumbs(breadcrumbs) {
   if (!explorerBreadcrumbs) return;
   if (!breadcrumbs || breadcrumbs.length === 0) {
-    explorerBreadcrumbs.innerHTML = `<span class="breadcrumb-crumb active">${escapeHtml(state.explorerRemote)}</span>`;
+    explorerBreadcrumbs.innerHTML = `<span class="breadcrumb-crumb active">🏠 ${escapeHtml(state.explorerRemote)}</span>`;
     return;
   }
 
   const html = breadcrumbs.map((crumb, idx) => {
     const isLast = idx === breadcrumbs.length - 1;
+    const label = crumb.is_root ? `🏠 ${escapeHtml(crumb.name)}` : escapeHtml(crumb.name);
     const crumbHtml = isLast
-      ? `<span class="breadcrumb-crumb active" title="${escapeHtml(crumb.name)}">${escapeHtml(crumb.name)}</span>`
-      : `<span class="breadcrumb-crumb" title="${escapeHtml(crumb.name)}" data-path="${escapeHtml(crumb.path)}">${escapeHtml(crumb.name)}</span>`;
+      ? `<span class="breadcrumb-crumb active" title="${escapeHtml(crumb.name)}">${label}</span>`
+      : `<span class="breadcrumb-crumb" title="Go to ${escapeHtml(crumb.name)}" data-path="${escapeHtml(crumb.path)}">${label}</span>`;
     
     if (idx < breadcrumbs.length - 1) {
-      return `${crumbHtml}<span class="breadcrumb-separator">›</span>`;
+      return `${crumbHtml}<span class="breadcrumb-separator">/</span>`;
     }
     return crumbHtml;
   }).join('');
@@ -710,8 +841,8 @@ function renderExplorerBreadcrumbs(breadcrumbs) {
 
   explorerBreadcrumbs.querySelectorAll('.breadcrumb-crumb:not(.active)').forEach(el => {
     el.addEventListener('click', () => {
-      const targetPath = el.dataset.path;
-      loadFolder(state.explorerRemote, targetPath);
+      const targetPath = el.dataset.path || '';
+      loadFolder(state.explorerRemote, targetPath, true);
     });
   });
 }
@@ -765,8 +896,22 @@ function renderExplorerItems() {
   if (!explorerContainer) return;
 
   if (state.explorerFilteredItems.length === 0) {
+    // Even if folder is empty or filter returned 0, show the parent directory row if not at root
+    const parentRow = state.explorerPath ? `
+      <div class="explorer-row is-parent-dir" data-parent-dir="true" title="Go up one folder (Alt+Up or Backspace)">
+        <div class="explorer-row-icon">⬆️</div>
+        <div class="explorer-row-name">
+          <span class="parent-dir-dots">..</span>
+          <span class="parent-dir-hint">&nbsp;(Up to parent folder)</span>
+        </div>
+        <div class="explorer-row-size">Folder</div>
+        <div class="explorer-row-date"></div>
+      </div>
+    ` : '';
+
     if (state.explorerFilter) {
       explorerContainer.innerHTML = `
+        ${parentRow}
         <div class="empty-state">
           <h3>No matching files</h3>
           <p>No items in this folder match "${escapeHtml(state.explorerFilter)}".</p>
@@ -774,6 +919,7 @@ function renderExplorerItems() {
       `;
     } else {
       explorerContainer.innerHTML = `
+        ${parentRow}
         <div class="empty-state">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
@@ -783,6 +929,7 @@ function renderExplorerItems() {
         </div>
       `;
     }
+    attachExplorerItemEvents();
     return;
   }
 
@@ -794,7 +941,23 @@ function renderExplorerItems() {
 }
 
 function renderExplorerListView() {
-  const html = state.explorerFilteredItems.map((item, idx) => {
+  // Add '..' Parent Directory row at the top if inside a subfolder
+  let parentRowHtml = '';
+  if (state.explorerPath) {
+    parentRowHtml = `
+      <div class="explorer-row is-parent-dir" data-parent-dir="true" title="Go up one folder (Alt+Up or Backspace)">
+        <div class="explorer-row-icon">⬆️</div>
+        <div class="explorer-row-name">
+          <span class="parent-dir-dots">..</span>
+          <span class="parent-dir-hint">&nbsp;(Up to parent folder)</span>
+        </div>
+        <div class="explorer-row-size">Folder</div>
+        <div class="explorer-row-date"></div>
+      </div>
+    `;
+  }
+
+  const itemsHtml = state.explorerFilteredItems.map((item, idx) => {
     const isSelected = idx === state.explorerSelectedIndex;
     const icon = getFileIconEmoji(item);
     const highlightedName = highlightMatches(item.filename, state.explorerFilter);
@@ -811,12 +974,24 @@ function renderExplorerListView() {
     `;
   }).join('');
 
-  explorerContainer.innerHTML = html;
+  explorerContainer.innerHTML = parentRowHtml + itemsHtml;
   attachExplorerItemEvents();
 }
 
 function renderExplorerGridView() {
-  const html = state.explorerFilteredItems.map((item, idx) => {
+  // Add '..' Parent Directory card at the top if inside a subfolder
+  let parentCardHtml = '';
+  if (state.explorerPath) {
+    parentCardHtml = `
+      <div class="explorer-grid-card is-parent-dir" data-parent-dir="true" title="Go up one folder (Alt+Up or Backspace)">
+        <div class="explorer-grid-icon">⬆️</div>
+        <div class="explorer-grid-name">.. (Go Up)</div>
+        <div class="explorer-grid-meta">Parent Folder</div>
+      </div>
+    `;
+  }
+
+  const itemsHtml = state.explorerFilteredItems.map((item, idx) => {
     const isSelected = idx === state.explorerSelectedIndex;
     const icon = getFileIconEmoji(item);
     const metaDisplay = item.is_dir ? 'Folder' : item.size_formatted;
@@ -830,12 +1005,26 @@ function renderExplorerGridView() {
     `;
   }).join('');
 
-  explorerContainer.innerHTML = html;
+  explorerContainer.innerHTML = parentCardHtml + itemsHtml;
   attachExplorerItemEvents();
 }
 
 function attachExplorerItemEvents() {
-  const elements = explorerContainer.querySelectorAll('.explorer-row, .explorer-grid-card');
+  // Handle Parent Directory '..' row/card click (single-click and double-click both go up)
+  const parentEls = explorerContainer.querySelectorAll('.is-parent-dir');
+  parentEls.forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      goUp();
+    });
+    el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      goUp();
+    });
+  });
+
+  // Handle standard files & folders
+  const elements = explorerContainer.querySelectorAll('.explorer-row:not(.is-parent-dir), .explorer-grid-card:not(.is-parent-dir)');
   elements.forEach(el => {
     const idx = parseInt(el.dataset.index, 10);
     const item = state.explorerFilteredItems[idx];
@@ -850,7 +1039,7 @@ function attachExplorerItemEvents() {
     // Double Click -> Open/Enter
     el.addEventListener('dblclick', (e) => {
       if (item.is_dir) {
-        loadFolder(state.explorerRemote, item.rel_path);
+        loadFolder(state.explorerRemote, item.rel_path, true);
       } else {
         openFile(item.local_path);
       }
@@ -1033,7 +1222,7 @@ function pollSyncStatus() {
         if (state.mode === 'search') {
           performSearch();
         } else {
-          loadFolder(state.explorerRemote, state.explorerPath);
+          loadFolder(state.explorerRemote, state.explorerPath, false);
         }
         showToast('Cloud index update complete!');
         return;
