@@ -30,6 +30,18 @@
       </div>
 
       <div class="header-right">
+        <!-- View Mode Switcher -->
+        <div class="mode-switcher" id="modeSwitcher">
+          <button id="modeSearchBtn" class="mode-btn active" title="Search Mode (/)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span>Search</span>
+          </button>
+          <button id="modeExplorerBtn" class="mode-btn" title="Cloud Explorer (Ctrl+E)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            <span>Explorer</span>
+          </button>
+        </div>
+
         <button id="syncBtn" class="btn btn-secondary" title="Sync index directly from cloud APIs">
           <svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -54,7 +66,7 @@
     </div>
 
     <!-- Search Section -->
-    <section class="search-section">
+    <section class="search-section" id="searchSection">
       <div class="search-input-wrapper">
         <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/>
@@ -101,7 +113,7 @@
     </section>
 
     <!-- Search Status Bar -->
-    <div class="results-status-bar">
+    <div class="results-status-bar" id="searchStatusBar">
       <span id="resultsCount">0 results</span>
       <div class="shortcuts-legend">
         <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
@@ -111,7 +123,7 @@
       </div>
     </div>
 
-    <!-- Results List -->
+    <!-- Results List (Search Mode) -->
     <main class="results-container" id="resultsContainer">
       <!-- Dynamic results will be injected here -->
       <div class="empty-state" id="emptyState">
@@ -123,6 +135,98 @@
         <button id="initialSyncBtn" class="btn btn-primary">Start Initial Cloud Sync</button>
       </div>
     </main>
+
+    <!-- Cloud Explorer Section (Pseudo File Manager Mode) -->
+    <section class="explorer-section hidden" id="explorerSection">
+      <!-- Explorer Header Toolbar -->
+      <div class="explorer-toolbar">
+        <div class="explorer-nav-controls">
+          <button id="explorerUpBtn" class="btn btn-icon" title="Go up one folder (Alt+Up or Backspace)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m18 15-6-6-6 6"/>
+            </svg>
+          </button>
+          <button id="explorerRefreshBtn" class="btn btn-icon" title="Refresh folder">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 16h5v5"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Drive Selector Tabs -->
+        <div class="filter-group explorer-drives" id="explorerDrives">
+          <!-- Dynamically populated from remotes -->
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- View Mode: List vs Grid -->
+        <div class="view-toggle" id="viewToggle">
+          <button id="viewListBtn" class="view-btn active" title="List View">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button id="viewGridBtn" class="view-btn" title="Grid View">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Clickable Breadcrumb Bar & Quick Filter -->
+      <div class="breadcrumbs-bar">
+        <nav class="breadcrumbs-container" id="explorerBreadcrumbs" aria-label="Breadcrumb">
+          <!-- Dynamically generated breadcrumbs -->
+        </nav>
+        <div class="folder-filter-container">
+          <input type="text" id="explorerFilterInput" class="folder-filter-input" placeholder="Filter this folder...">
+          <button id="clearExplorerFilterBtn" class="clear-filter-btn hidden" title="Clear filter">×</button>
+        </div>
+      </div>
+
+      <!-- Explorer Status Bar -->
+      <div class="explorer-status-bar">
+        <div class="explorer-counts">
+          <span id="explorerCountsText">0 folders, 0 files</span>
+          <span class="meta-dot">•</span>
+          <span id="explorerSizeText">0 KB</span>
+          <span class="meta-dot">•</span>
+          <span id="explorerLatencyText">0 ms</span>
+        </div>
+        <div class="shortcuts-legend">
+          <span><kbd>Enter</kbd> Open/Enter</span>
+          <span><kbd>Backspace</kbd> Up</span>
+          <span><kbd>Ctrl+Enter</kbd> Reveal in Nemo</span>
+        </div>
+      </div>
+
+      <!-- Explorer Files/Folders View Container -->
+      <main class="explorer-view-container list-view" id="explorerContainer">
+        <!-- Dynamically injected items -->
+      </main>
+    </section>
+
+    <!-- Context Menu -->
+    <div id="explorerContextMenu" class="context-menu hidden">
+      <div class="context-menu-item" id="ctxOpen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        <span>Open File</span>
+      </div>
+      <div class="context-menu-item" id="ctxReveal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span>Reveal in Nemo</span>
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" id="ctxCopyPath">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <span>Copy Local Path</span>
+      </div>
+      <div class="context-menu-item" id="ctxCopyCloudPath">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+        <span>Copy Cloud Path</span>
+      </div>
+    </div>
 
     <!-- Toast Notification -->
     <div id="toast" class="toast hidden">Copied to clipboard</div>

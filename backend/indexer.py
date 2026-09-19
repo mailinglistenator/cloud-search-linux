@@ -84,6 +84,7 @@ def sync_remote(remote_id: str) -> Dict[str, Any]:
 
                 size = int(size_str) if (size_str.isdigit() and size_str != "-1") else 0
                 filename = os.path.basename(rel_path)
+                parent_path = os.path.dirname(rel_path) if "/" in rel_path else ""
                 ext = "folder" if is_dir else (filename.rsplit(".", 1)[-1].lower() if "." in filename else "")
 
                 # Format mtime to ISO string if possible
@@ -93,15 +94,15 @@ def sync_remote(remote_id: str) -> Dict[str, Any]:
                 except Exception:
                     mtime = mtime_str[:19].replace("T", " ")
 
-                batch.append((remote_id, rel_path, filename, ext, size, mtime, is_dir))
+                batch.append((remote_id, rel_path, filename, ext, size, mtime, is_dir, parent_path))
                 total_indexed += 1
 
                 if len(batch) >= batch_size:
                     with con:
                         con.executemany(
                             """
-                            INSERT INTO files (remote_id, rel_path, filename, extension, size, mtime, is_dir)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO files (remote_id, rel_path, filename, extension, size, mtime, is_dir, parent_path)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             batch
                         )
@@ -113,8 +114,8 @@ def sync_remote(remote_id: str) -> Dict[str, Any]:
             with con:
                 con.executemany(
                     """
-                    INSERT INTO files (remote_id, rel_path, filename, extension, size, mtime, is_dir)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO files (remote_id, rel_path, filename, extension, size, mtime, is_dir, parent_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     batch
                 )

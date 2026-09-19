@@ -128,6 +128,11 @@ def handle_cli():
     p_sync = subparsers.add_parser("sync", help="Trigger cloud index sync")
     p_sync.add_argument("--remote", "-r", choices=["onedrive", "gdrive"], help="Sync specific remote")
 
+    # browse
+    p_browse = subparsers.add_parser("browse", help="Browse indexed cloud folder hierarchy")
+    p_browse.add_argument("remote", choices=["onedrive", "gdrive"], help="Remote to browse")
+    p_browse.add_argument("path", nargs="?", default="", help="Folder path (optional, default root)")
+
     args = parser.parse_args()
 
     ensure_backend_running()
@@ -155,6 +160,19 @@ def handle_cli():
         for r in results:
             print(f"[{r['remote_name']}] {r['filename']} ({r['size_formatted']})")
             print(f"  Path: {r['local_path']}\n")
+
+    elif args.command == "browse":
+        params = urllib.parse.urlencode({"remote": args.remote, "path": args.path})
+        req = urllib.request.urlopen(f"http://{HOST}:{PORT}/api/browse?{params}")
+        data = json.loads(req.read().decode("utf-8"))
+        items = data.get("items", [])
+        crumbs = " / ".join([c["name"] for c in data.get("breadcrumbs", [])])
+        print(f"\n📁 {crumbs} ({data.get('folder_count', 0)} folders, {data.get('file_count', 0)} files, {data.get('elapsed_ms', 0)} ms)\n")
+        for item in items:
+            prefix = "📁 [DIR] " if item["is_dir"] else "📄 [FILE]"
+            size_str = f"({item['size_formatted']})" if not item["is_dir"] else ""
+            print(f"  {prefix} {item['filename']:<40} {size_str}")
+        print()
 
     elif args.command == "sync":
         body = json.dumps({"remote_id": args.remote}).encode("utf-8")

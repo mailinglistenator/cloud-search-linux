@@ -7,7 +7,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 from config import PORT, HOST, WEB_DIR, ASSETS_DIR
-from db import init_db, search_files, get_stats
+from db import init_db, search_files, get_stats, get_folder_contents
 from indexer import trigger_sync, get_sync_status
 from actions import open_file, reveal_in_folder
 
@@ -100,6 +100,13 @@ class CloudSearchHandler(SimpleHTTPRequestHandler):
 
         elif path == "/api/sync/status":
             self._send_json(get_sync_status())
+            return
+
+        elif path == "/api/browse":
+            remote = query.get("remote", [""])[0]
+            folder_path = query.get("path", [""])[0]
+            res = get_folder_contents(remote_id=remote, folder_path=folder_path)
+            self._send_json(res)
             return
 
         # Static files

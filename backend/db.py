@@ -48,13 +48,19 @@ def init_db():
             extension TEXT,
             size INTEGER DEFAULT 0,
             mtime TEXT,
-            is_dir INTEGER DEFAULT 0
+            is_dir INTEGER DEFAULT 0,
+            parent_path TEXT DEFAULT ''
         );
         """)
 
-        # Migration: ensure is_dir column exists
+        # Migration: ensure is_dir and parent_path columns exist
         try:
             con.execute("ALTER TABLE files ADD COLUMN is_dir INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            con.execute("ALTER TABLE files ADD COLUMN parent_path TEXT DEFAULT ''")
         except sqlite3.OperationalError:
             pass
 
@@ -62,6 +68,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_files_remote ON files(remote_id);
         CREATE INDEX IF NOT EXISTS idx_files_ext ON files(extension);
         CREATE INDEX IF NOT EXISTS idx_files_is_dir ON files(is_dir);
+        CREATE INDEX IF NOT EXISTS idx_files_parent ON files(remote_id, parent_path);
 
         CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
             filename,
@@ -96,6 +103,20 @@ def init_db():
                 "INSERT OR IGNORE INTO remotes (id, name, mount_path) VALUES (?, ?, ?)",
                 (r_id, r_info["name"], str(r_info["mount_path"]))
             )
+
+        # Migration: populate parent_path for existing rows if needed
+        try:
+            need_migration = con.execute("SELECT 1 FROM files WHERE instr(rel_path, '/') > 0 AND (parent_path IS NULL OR parent_path = '') LIMIT 1").fetchone()
+            if need_migration:
+                print("[db] Migrating database: calculating parent_path for Cloud Explorer...")
+                con.execute("""
+                    UPDATE files
+                    SET parent_path = substr(rel_path, 1, length(rel_path) - length(filename) - 1)
+                    WHERE instr(rel_path, '/') > 0 AND (parent_path IS NULL OR parent_path = '')
+                """)
+                print("[db] Migration complete!")
+        except Exception as e:
+            print(f"[db] Migration check: {e}")
 
 def clean_fts_query(raw_query: str) -> str:
     """Format raw query tokens into safe, prefix-matching SQLite FTS5 syntax."""
@@ -296,4 +317,90 @@ def get_stats() -> Dict[str, Any]:
     return {
         "total_files": total_files,
         "remotes": remotes_data
+    }
+
+def get_folder_contents(remote_id: str, folder_path: str = "") -> Dict[str, Any]:
+    """Get contents of a specific folder for Cloud Explorer browsing."""
+    start_time = time.perf_counter()
+    con = get_db()
+
+    folder_path = (folder_path or "").strip("/\\")
+
+    remote_conf = REMOTES.get(remote_id)
+    if not remote_conf and REMOTES:
+        remote_id = list(REMOTES.keys())[0]
+        remote_conf = REMOTES[remote_id]
+
+    remote_name = remote_conf.get("name", remote_id) if remote_conf else remote_id
+    mount_path = Path(remote_conf.get("mount_path", "")) if remote_conf else Path("")
+    is_mounted = mount_path.is_mount() or mount_path.exists()
+
+    cur = con.execute("""
+        SELECT id, remote_id, rel_path, filename, extension, size, mtime, is_dir, parent_path
+        FROM files
+        WHERE remote_id = ? AND parent_path = ?
+        ORDER BY is_dir DESC, filename COLLATE NOCASE ASC
+    """, (remote_id, folder_path))
+
+    rows = cur.fetchall()
+
+    items = []
+    folder_count = 0
+    file_count = 0
+    total_size = 0
+
+    for r in rows:
+        is_dir = bool(r["is_dir"])
+        if is_dir:
+            folder_count += 1
+        else:
+            file_count += 1
+            total_size += (r["size"] or 0)
+
+        full_local_path = mount_path / r["rel_path"] if mount_path else Path(r["rel_path"])
+
+        items.append({
+            "id": r["id"],
+            "remote_id": remote_id,
+            "filename": r["filename"],
+            "rel_path": r["rel_path"],
+            "parent_path": r["parent_path"],
+            "extension": "folder" if is_dir else (r["extension"] or ""),
+            "size": r["size"] or 0,
+            "size_formatted": format_file_size(r["size"] or 0, is_dir=is_dir),
+            "mtime": r["mtime"] or "",
+            "local_path": str(full_local_path),
+            "is_dir": is_dir,
+            "is_mounted": is_mounted
+        })
+
+    # Clickable breadcrumbs
+    breadcrumbs = [{"name": remote_name, "path": "", "is_root": True}]
+    if folder_path:
+        parts = folder_path.split("/")
+        accum = []
+        for p in parts:
+            accum.append(p)
+            breadcrumbs.append({
+                "name": p,
+                "path": "/".join(accum),
+                "is_root": False
+            })
+
+    parent_of_current = os.path.dirname(folder_path) if "/" in folder_path else ("" if folder_path else None)
+    elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+    return {
+        "remote_id": remote_id,
+        "remote_name": remote_name,
+        "remote_color": remote_conf.get("color", "#0078d4") if remote_conf else "#0078d4",
+        "current_path": folder_path,
+        "parent_path": parent_of_current,
+        "breadcrumbs": breadcrumbs,
+        "items": items,
+        "folder_count": folder_count,
+        "file_count": file_count,
+        "total_size_formatted": format_file_size(total_size, is_dir=False),
+        "is_mounted": is_mounted,
+        "elapsed_ms": round(elapsed_ms, 2)
     }
